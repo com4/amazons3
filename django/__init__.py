@@ -1,0 +1,121 @@
+from django.conf import settings
+from amazons3 import S3
+
+from django.core.files.storage import Storage
+
+class S3Error(Exception):
+    "Misc. S3 Service Error"
+    pass
+
+class S3Storage(Storage):
+    options = None
+
+    def __init__(self, options=None):
+        if not options:
+            options = settings.S3_SETTINGS
+            self.options = options
+        self.perm_tuple = (
+            'private',
+            'public-read',
+            'public-read-write',
+            'authenticated-read'
+        )
+        if self.options['default_perm'] not in self.perm_tuple:
+            self.options['default_perm'] = 'private'
+
+        self.connect()
+
+    def connect(self):
+        self.conn = S3.AWSAuthConnection(self.options['aws_key'], self.options['aws_secret_key'])
+
+        res = self.conn.check_bucket_exists(self.options['bucket'])
+
+        if res.status != 200:
+            res = self.conn.create_bucket(self.options['bucket'])
+            if res.http_response.status != 200:
+                raise S3Error, 'Unable to create bucket %s' % (self.options['bucket'])
+
+        return True
+
+    def exists(self, filename):
+        contents = self.conn.list_bucket(self.options['bucket'])
+        if filename in [f.key for f in contents.entries]:
+            return True
+        else:
+            return False
+
+    def size(self, filename):
+        contents = self.conn.list_bucket(self.options['bucket'])
+        for f in contents.entries:
+            if f.name == filename:
+                return f.size
+
+        return False
+
+    def url(self, filename):
+        server = self.options['bucket']
+        if not self.options['vanity_url']:
+            server += '.s3.amazonaws.com'
+        return 'http://' + server + '/' + filename
+
+
+    def _save(self, filename, content):
+        # a stupid hack
+        content = content.file
+        try:
+            data = content.read()
+        except IOError, err:
+            raise S3Error, 'Unable to read %s: %s' % (filename, err.strerror)
+
+        if not content.content_type:
+            import mimetypes
+            content_type = mimetypes.guess_type(filename)[0]
+            if content_type is None:
+                content_type = 'text/plain'
+        else:
+            content_type = content.content_type
+
+        perm = self.options['default_perm']
+
+        res = self.conn.put(
+            self.options['bucket'],
+            filename,
+            S3.S3Object(data),
+            {
+                'x-amz-acl': perm,
+                'Content-Type': content_type
+            }
+        )
+
+        if res.http_response.status != 200:
+            raise S3Error, 'Unable to upload file %s: Error code %s: %s' % (filename, self.options['bucket'], res.body)
+
+
+        content.filename = filename
+        content.url = self.url(filename)
+
+        return filename
+
+    def delete(self, filename):
+        res = self.conn.delete(self.options['bucket'], filename)
+        if res.http_response.status != 204:
+            pass
+            #raise S3Error, 'Unable to delete file %s' % (filename)
+
+        return (res.http_response.status == 204)
+
+    def path(self, filename):
+        raise NotImplementedError
+
+    def open(self, filename, mode):
+        from urllib import urlopen
+        return urlopen(self.url(filename))
+
+    def get_available_name(self, filename):
+        import os
+        basefilename = os.path.splitext(filename)
+        i = 1
+        while self.exists(filename):
+            filename = '%s-%d%s' % (basefilename[0], i, basefilename[1])
+
+        return filename

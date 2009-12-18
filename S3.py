@@ -13,7 +13,7 @@ import base64
 import hmac
 import httplib
 import re
-import sha
+from hashlib import sha1
 import sys
 import time
 import urllib
@@ -81,7 +81,7 @@ def canonical_string(method, bucket="", key="", query_args={}, headers={}, expir
 # computes the base64'ed hmac-sha hash of the canonical string and the secret
 # access key, optionally urlencoding the result
 def encode(aws_secret_access_key, str, urlencode=False):
-    b64_hmac = base64.encodestring(hmac.new(aws_secret_access_key, str, sha).digest()).strip()
+    b64_hmac = base64.encodestring(hmac.new(aws_secret_access_key, str, sha1).digest()).strip()
     if urlencode:
         return urllib.quote_plus(b64_hmac)
     else:
@@ -268,7 +268,7 @@ class AWSAuthConnection:
             else:
                 connection = httplib.HTTPConnection(host)
 
-            final_headers = merge_meta(headers, metadata);
+            final_headers = merge_meta(headers, metadata)
             # add auth header
             self._add_aws_auth_header(final_headers, method, bucket, key, query_args)
 
@@ -284,10 +284,12 @@ class AWSAuthConnection:
             resp.read()
             scheme, host, path, params, query, fragment \
                     = urlparse.urlparse(location)
-            if scheme == "http":    is_secure = True
+            if scheme == "http":
+                is_secure = True
             elif scheme == "https": is_secure = False
             else: raise invalidURL("Not http/https: " + location)
-            if query: path += "?" + query
+            if query:
+                path += "?" + query
             # retry with redirect
 
     def _add_aws_auth_header(self, headers, method, bucket, key, query_args):

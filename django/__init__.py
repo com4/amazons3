@@ -61,7 +61,7 @@ class S3Storage(Storage):
 
     def _save(self, filename, content):
         # a stupid hack
-        #content = content.file
+        content = content.file
         try:
             data = content.read()
         except IOError, err:

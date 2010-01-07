@@ -61,13 +61,19 @@ class S3Storage(Storage):
 
     def _save(self, filename, content):
         # a stupid hack
-        content = content.file
+        #content = content.file
         try:
             data = content.read()
         except IOError, err:
             raise S3Error, 'Unable to read %s: %s' % (filename, err.strerror)
 
-        if not content.content_type:
+        guess_type = False
+        try:
+            content.content_type
+        except AttributeError, e:
+            guess_type = True
+        
+        if guess_type or not content.content_type:
             import mimetypes
             content_type = mimetypes.guess_type(filename)[0]
             if content_type is None:

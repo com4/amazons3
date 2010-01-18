@@ -277,7 +277,8 @@ class AWSAuthConnection:
             except:
                 # Sometimes the connection is reset by peer. If that happens
                 # just try it again and we'll see what happens.
-                connection.request(method, path, data, final_headers)
+                connection.close()
+                continue
 
             resp = connection.getresponse()
             if resp.status < 300 or resp.status >= 400:
@@ -297,6 +298,7 @@ class AWSAuthConnection:
             if query:
                 path += "?" + query
             # retry with redirect
+            connection.close()
 
     def _add_aws_auth_header(self, headers, method, bucket, key, query_args):
         if not headers.has_key('Date'):

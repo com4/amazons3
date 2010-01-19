@@ -38,7 +38,8 @@ class S3Storage(Storage):
         return True
 
     def exists(self, filename):
-        contents = self.conn.list_bucket(self.options['bucket'])
+        import os
+        contents = self.conn.list_bucket(self.options['bucket'], {'prefix': os.path.dirname(filename)})
         if filename in [f.key for f in contents.entries]:
             return True
         else:
@@ -122,6 +123,7 @@ class S3Storage(Storage):
         basefilename = os.path.splitext(filename)
         i = 1
         while self.exists(filename):
+            i += 1
             filename = '%s-%d%s' % (basefilename[0], i, basefilename[1])
 
         return filename

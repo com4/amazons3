@@ -272,15 +272,16 @@ class AWSAuthConnection:
             # add auth header
             self._add_aws_auth_header(final_headers, method, bucket, key, query_args)
 
+            connection.request(method, path, data, final_headers)
+            
             try:
-                connection.request(method, path, data, final_headers)
+                resp = connection.getresponse()
             except:
                 # Sometimes the connection is reset by peer. If that happens
                 # just try it again and we'll see what happens.
                 connection.close()
                 continue
 
-            resp = connection.getresponse()
             if resp.status < 300 or resp.status >= 400:
                 return resp
             # handle redirect

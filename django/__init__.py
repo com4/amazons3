@@ -3,6 +3,7 @@ from amazons3 import S3
 
 from django.core.files.storage import Storage
 
+
 class S3Error(Exception):
     "Misc. S3 Service Error"
     pass
@@ -127,3 +128,26 @@ class S3Storage(Storage):
             filename = '%s-%d%s' % (basefilename[0], i, basefilename[1])
 
         return filename
+
+class CxStorage(S3Storage):
+    """
+    This storage engine provides the naming scheme for phonese3. It hashes
+    the file names before storage.
+    To use, set DEFAULT_STORAGE_ENGINE="CxStorage"
+    
+    Author: Jason Braegger
+    License: AGPLv3
+    Source: http://code.twi.gs/phonese3/
+    """
+    def get_valid_name(self, name):
+        """
+        This returns a hashed name to use for storage on the filesystem
+        """
+        import os.path
+        from hashlib import md5
+        import time
+        
+        extension = os.path.splitext(name)[1].lower()
+
+        return str(md5(str(time.time()) + str(name)).hexdigest()) + \
+            str(extension)

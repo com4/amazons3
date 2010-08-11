@@ -148,6 +148,8 @@ class CxStorage(S3Storage):
         import time
         
         extension = os.path.splitext(name)[1].lower()
+        # Ensure an ascii string for .hexdigest() later.
+        name = str(name).encode('ascii', 'ignore')
 
-        return str(md5(str(time.time()) + str(name)).hexdigest()) + \
+        return str(md5(str(time.time()) + name).hexdigest()) + \
             str(extension)

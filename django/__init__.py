@@ -58,6 +58,8 @@ class S3Storage(Storage):
         server = self.options['bucket']
         if not self.options['vanity_url']:
             server += '.s3.amazonaws.com'
+        else:
+            server = self.options['vanity_url']
         return 'http://' + server + '/' + filename
 
 

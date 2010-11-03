@@ -1,3 +1,4 @@
+import os
 from django.conf import settings
 from amazons3 import S3
 
@@ -39,7 +40,6 @@ class S3Storage(Storage):
         return True
 
     def exists(self, filename):
-        import os
         contents = self.conn.list_bucket(self.options['bucket'], {'prefix': os.path.dirname(filename)})
         if filename in [f.key for f in contents.entries]:
             return True
@@ -47,9 +47,9 @@ class S3Storage(Storage):
             return False
 
     def size(self, filename):
-        contents = self.conn.list_bucket(self.options['bucket'])
+        contents = self.conn.list_bucket(self.options['bucket'], {'prefix': os.path.dirname(filename)} )
         for f in contents.entries:
-            if f.name == filename:
+            if f.key == filename:
                 return f.size
 
         return False

@@ -1,8 +1,21 @@
+import os
+from StringIO import StringIO
 from django.conf import settings
 from amazons3 import S3
 
 from django.core.files.storage import Storage
 
+class S3OpenFile(StringIO):
+    """
+    Wrapper for StringIO which allows open() to be called on it.
+    
+    This is for FileField form fields, which expect to be able to call open()
+    and then retrieve data from the file.
+    ** NOTE: The behavior of calling open() and then writing to the file is
+    currently unknown. **
+    """
+    def open(self, *args, **kwargs):
+        self.seek(0)
 
 class S3Error(Exception):
     "Misc. S3 Service Error"
@@ -39,7 +52,6 @@ class S3Storage(Storage):
         return True
 
     def exists(self, filename):
-        import os
         contents = self.conn.list_bucket(self.options['bucket'], {'prefix': os.path.dirname(filename)})
         if filename in [f.key for f in contents.entries]:
             return True
@@ -47,9 +59,9 @@ class S3Storage(Storage):
             return False
 
     def size(self, filename):
-        contents = self.conn.list_bucket(self.options['bucket'])
+        contents = self.conn.list_bucket(self.options['bucket'], {'prefix': os.path.dirname(filename)} )
         for f in contents.entries:
-            if f.name == filename:
+            if f.key == filename:
                 return f.size
 
         return False
@@ -123,7 +135,15 @@ class S3Storage(Storage):
 
     def open(self, filename, mode):
         from urllib import urlopen
-        return urlopen(self.url(filename))
+        # Download data from S3 and save 
+        # into a file wrapper, which allows its
+        # use as normal in FileFields.
+        #
+        # Note: This saves the file data into memory.
+        data = urlopen(self.url(filename))
+        openfile = S3OpenFile()
+        openfile.write(data.read())
+        return openfile 
 
     def get_available_name(self, filename):
         import os
